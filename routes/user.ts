@@ -1,5 +1,8 @@
 import { Router, Request, Response } from "express";
 import { User } from '../models/user.model';
+import Token from '../classes/token';
+import { verifyToken } from '../middleware/autentication';
+import bodyParser from 'body-parser';
 
 
 const userRoutes = Router();
@@ -21,10 +24,18 @@ userRoutes.post('/login', (req: Request, res: Response) => {
         }
 
         if (userDB.passwordValidation( body.password )) {
+
+            const userToken = Token.getJwtToken({
+                _id: userDB._id,
+                nombre: userDB.nombre,
+                email: userDB.email
+            });
+
             res.json({
                 ok: true,
-                token: 'asdfghjklñpoiuytrewq'
+                token: userToken
             });
+
         } else {
             return res.json({
                 ok: false,
@@ -46,10 +57,18 @@ userRoutes.post('/create', (req: Request, res: Response) => {
     };
 
     User.create(user).then( userDB => {
+
+        const userToken = Token.getJwtToken({
+            _id: userDB._id,
+            nombre: userDB.nombre,
+            email: userDB.email
+        });
+
         res.json({
             ok: true,
-            user: userDB
+            token: userToken
         });
+
     }).catch( err => {
         res.json({
             ok: false,
@@ -57,6 +76,39 @@ userRoutes.post('/create', (req: Request, res: Response) => {
         })
     });
 
+});
+
+// Actualizar Usuario
+userRoutes.post('/update', verifyToken ,(req: any, res: Response) => {
+
+    const user = {
+        nombre: req.body.nombre || req.user.nombre,
+        email: req.body.email || req.user.email
+    }
+
+    User.findByIdAndUpdate(req.user._id, user, {new: true}, (err, userDB) => {
+
+        if(err) throw err;
+
+        if (!userDB) {
+            return res.json({
+                ok: false,
+                message: 'User doesnt exits in the base data'
+            });
+        }
+
+        const userToken = Token.getJwtToken({
+            _id: userDB._id,
+            nombre: userDB.nombre,
+            email: userDB.email
+        });
+
+        res.json({
+            ok: true,
+            token: userToken
+        });
+
+    });
 });
 
 export default userRoutes;
